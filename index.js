@@ -6,10 +6,10 @@ let [n] = process.argv.slice(3);
 let [k] = process.argv.slice(2);
 
 if (n <= 2) {
-    console.log(color.red("Простых чисел в диапазоне нет!"));
+    console.log(color.red("Простых чисел в диапазоне нет"));
     return false;
 } else if ((isNaN(n)) || (isNaN(k))) {
-    console.log(color.red("not number!"));
+    console.log(color.red("Not number!!"));
     return false;
 } else
     for (k; k <= n; k++) {
