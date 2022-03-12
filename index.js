@@ -1,27 +1,60 @@
-const color = require('colors');
-console.log(process.argv);
-let c = [color.green, color.yellow, color.red]
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat.js';
+import duration from 'dayjs/plugin/duration.js';
+import EventEmitter from 'events';
+import process from 'process';
 
-let [n] = process.argv.slice(3);
-let [k] = process.argv.slice(2);
+dayjs.extend(duration);
 
-if (n <= 2) {
-    console.log(color.red("Простых чисел в диапазоне нет"));
-    return false;
-} else if ((isNaN(n)) || (isNaN(k))) {
-    console.log(color.red("Not number!!"));
-    return false;
-} else
-    for (k; k <= n; k++) {
+const setTimers = process.argv.slice(2);
+const emitter = new EventEmitter();
 
-        for (let j = 2; j < k; j++) {
-            if ((k % j == 0) && (j !== k)) {
-                break;
-            } else {
-                c.forEach(item => {
-                    console.log(item(k));
-                })
-                break;
-            }
+class Timer {
+    constructor(timerValue) {
+        this.endTime = this.getTimerEndTime(timerValue);
+        this.timerValue = timerValue;
+
+        this.interval = setInterval(() => {
+            this.timerTick();
+        }, 1000);
+    }
+
+    getTimerEndTime(timerValue) {
+        const timerToArrayOfValues = timerValue.split('-');
+        if (timerToArrayOfValues.length < 6) {
+            throw new Error('Неверный формат продолжительности таймера');
+        }
+        const now = dayjs();
+        const timerDuration = dayjs.duration({
+            seconds: timerToArrayOfValues[0],
+            minutes: timerToArrayOfValues[1],
+            hours: timerToArrayOfValues[2],
+            days: timerToArrayOfValues[3],
+            months: timerToArrayOfValues[4],
+            years: timerToArrayOfValues[5],
+        });
+        return now.add(timerDuration);
+    }
+
+    timerTick() {
+        const duration = dayjs.duration(this.endTime.diff(dayjs()));
+        if (duration.asSeconds() <= 0) {
+            emitter.emit('timerFinish', `Таймер ${this.timerValue} завершился`);
+            clearInterval(this.interval);
+        } else {
+            emitter.emit('timerTick', `До таймера ${this.timerValue} осталось ${duration.format('YY лет MM месяцев DD дней HH:mm:ss')}`);
         }
     }
+}
+
+setTimers.forEach(inputTimer => {
+    new Timer(inputTimer);
+});
+
+emitter.on('timerFinish', (payload) => {
+    console.log(payload);
+});
+
+emitter.on('timerTick', (payload) => {
+    console.log(payload);
+});
