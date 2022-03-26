@@ -1,60 +1,37 @@
-import dayjs from 'dayjs';
-import customParseFormat from 'dayjs/plugin/customParseFormat.js';
-import duration from 'dayjs/plugin/duration.js';
-import EventEmitter from 'events';
-import process from 'process';
+const fs = require('fs'),
+    { Transform } = require('stream');
+ACCESS_LOG = './access.log';
 
-dayjs.extend(duration);
 
-const setTimers = process.argv.slice(2);
-const emitter = new EventEmitter();
+import fs from 'fs';
+import readline from 'readline';
+import { Stream } from 'stream';
+const parseFile = './access_tmp.log';
 
-class Timer {
-    constructor(timerValue) {
-        this.endTime = this.getTimerEndTime(timerValue);
-        this.timerValue = timerValue;
+let ip = process.argv.slice(2);
+const newStream = fs.createReadStream(parseFile, 'utf-8');
+const outStream = new Stream();
+const readLineFromStream = readline.createInterface(newStream, outStream);
+const writeStreams = {};
 
-        this.interval = setInterval(() => {
-            this.timerTick();
-        }, 1000);
-    }
-
-    getTimerEndTime(timerValue) {
-        const timerToArrayOfValues = timerValue.split('-');
-        if (timerToArrayOfValues.length < 6) {
-            throw new Error('Неверный формат продолжительности таймера');
-        }
-        const now = dayjs();
-        const timerDuration = dayjs.duration({
-            seconds: timerToArrayOfValues[0],
-            minutes: timerToArrayOfValues[1],
-            hours: timerToArrayOfValues[2],
-            days: timerToArrayOfValues[3],
-            months: timerToArrayOfValues[4],
-            years: timerToArrayOfValues[5],
-        });
-        return now.add(timerDuration);
-    }
-
-    timerTick() {
-        const duration = dayjs.duration(this.endTime.diff(dayjs()));
-        if (duration.asSeconds() <= 0) {
-            emitter.emit('timerFinish', `Таймер ${this.timerValue} завершился`);
-            clearInterval(this.interval);
-        } else {
-            emitter.emit('timerTick', `До таймера ${this.timerValue} осталось ${duration.format('YY лет MM месяцев DD дней HH:mm:ss')}`);
-        }
-    }
+if (ip.length == 0) {
+    ip = ['89.123.1.41', '34.48.240.111'];
 }
 
-setTimers.forEach(inputTimer => {
-    new Timer(inputTimer);
+ip.forEach((ip) => {
+    writeStreams[ip] = fs.createWriteStream(`${ip}_requests.log`, {
+        encoding: 'utf-8',
+        flags: 'a'
+    });
+
 });
 
-emitter.on('timerFinish', (payload) => {
-    console.log(payload);
-});
+readLineFromStream.on('line', (line) => {
+    if (line.length == 0) { return; }
 
-emitter.on('timerTick', (payload) => {
-    console.log(payload);
+    ip.forEach((ip) => {
+        if (line.indexOf(ip) !== -1) {
+            writeStreams[ip].write(line + '\n');
+        }
+    });
 });
