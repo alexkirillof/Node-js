@@ -1,27 +1,37 @@
-const color = require('colors');
-console.log(process.argv);
-let c = [color.green, color.yellow, color.red]
+const fs = require('fs'),
+    { Transform } = require('stream');
+ACCESS_LOG = './access.log';
 
-let [n] = process.argv.slice(3);
-let [k] = process.argv.slice(2);
 
-if (n <= 2) {
-    console.log(color.red("Простых чисел в диапазоне нет!"));
-    return false;
-} else if ((isNaN(n)) || (isNaN(k))) {
-    console.log(color.red("not number!"));
-    return false;
-} else
-    for (k; k <= n; k++) {
+import fs from 'fs';
+import readline from 'readline';
+import { Stream } from 'stream';
+const parseFile = './access_tmp.log';
 
-        for (let j = 2; j < k; j++) {
-            if ((k % j == 0) && (j !== k)) {
-                break;
-            } else {
-                c.forEach(item => {
-                    console.log(item(k));
-                })
-                break;
-            }
+let ip = process.argv.slice(2);
+const newStream = fs.createReadStream(parseFile, 'utf-8');
+const outStream = new Stream();
+const readLineFromStream = readline.createInterface(newStream, outStream);
+const writeStreams = {};
+
+if (ip.length == 0) {
+    ip = ['89.123.1.41', '34.48.240.111'];
+}
+
+ip.forEach((ip) => {
+    writeStreams[ip] = fs.createWriteStream(`${ip}_requests.log`, {
+        encoding: 'utf-8',
+        flags: 'a'
+    });
+
+});
+
+readLineFromStream.on('line', (line) => {
+    if (line.length == 0) { return; }
+
+    ip.forEach((ip) => {
+        if (line.indexOf(ip) !== -1) {
+            writeStreams[ip].write(line + '\n');
         }
-    }
+    });
+});
