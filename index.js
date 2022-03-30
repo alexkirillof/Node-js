@@ -1,27 +1,44 @@
-const color = require('colors');
-console.log(process.argv);
-let c = [color.green, color.yellow, color.red]
+const EventEmitter = require('events'),
+    emitter = new EventEmitter();
+require('moment-precise-range-plugin');
+const moment = require('moment');
 
-let [n] = process.argv.slice(3);
-let [k] = process.argv.slice(2);
+const [userPastDate] = process.argv.slice(2);
+const format = 'YYYY-MM-DD HH:mm:ss';
 
-if (n <= 2) {
-    console.log(color.red("Простых чисел в диапазоне нет!"));
-    return false;
-} else if ((isNaN(n)) || (isNaN(k))) {
-    console.log(color.red("not number!"));
-    return false;
-} else
-    for (k; k <= n; k++) {
+const getDateFromDateString = (dateString) => {
+    const [sec, min, hour, day, month, year] = dateString.split('-');
+    return new Date(Date.UTC(year, month - 1, day, hour, min, sec));
+};
 
-        for (let j = 2; j < k; j++) {
-            if ((k % j == 0) && (j !== k)) {
-                break;
-            } else {
-                c.forEach(item => {
-                    console.log(item(k));
-                })
-                break;
-            }
-        }
+const dateInFuture = getDateFromDateString(userPastDate);
+
+// console.log(dateInFuture);
+
+const showRemainingTime = (dateInFuture) => {
+    const dateNow = new Date();
+
+    if (dateNow >= dateInFuture) {
+        emitter.emit('timerEnd');
+    } else {
+        const currentDateFormatted = moment(dateNow, format);
+        const futureDateFormatted = moment(dateInFuture, format);
+        const diff = moment.preciseDiff(currentDateFormatted, futureDateFormatted);
+
+        console.log(diff);
     }
+};
+
+const timerId = setInterval(() => {
+    emitter.emit('timerTick', dateInFuture);
+}, 1000)
+
+const showTimerDone = (timerId) => {
+    clearInterval(timerId);
+    console.log('End');
+};
+
+emitter.on('timerTick', showRemainingTime);
+emitter.on('timerEnd', () => {
+    showTimerDone(timerId);
+});
