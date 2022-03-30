@@ -1,44 +1,61 @@
-const EventEmitter = require('events'),
-    emitter = new EventEmitter();
-require('moment-precise-range-plugin');
-const moment = require('moment');
+const fs = require('fs');
+const path = require('path');
+const inquirer = require('inquirer');
 
-const [userPastDate] = process.argv.slice(2);
-const format = 'YYYY-MM-DD HH:mm:ss';
 
-const getDateFromDateString = (dateString) => {
-    const [sec, min, hour, day, month, year] = dateString.split('-');
-    return new Date(Date.UTC(year, month - 1, day, hour, min, sec));
-};
 
-const dateInFuture = getDateFromDateString(userPastDate);
 
-// console.log(dateInFuture);
+const options = async() => {
+    const serchParams = { dirToSearch: '', pattern: '' };
 
-const showRemainingTime = (dateInFuture) => {
-    const dateNow = new Date();
+    const { thisDir } = await inquirer.prompt([{
+        name: 'thisDir',
+        type: 'confirm',
+        message: 'search here:',
+        describe: 'search here'
+    }]);
 
-    if (dateNow >= dateInFuture) {
-        emitter.emit('timerEnd');
+    if (!thisDir) {
+        serchParams.dirToSearch = (await inquirer.prompt([{
+            name: 'dirToSearch',
+            type: 'input',
+            message: 'indicate the path: ',
+            describe: 'indicate the path'
+        }])).dirToSearch;
     } else {
-        const currentDateFormatted = moment(dateNow, format);
-        const futureDateFormatted = moment(dateInFuture, format);
-        const diff = moment.preciseDiff(currentDateFormatted, futureDateFormatted);
-
-        console.log(diff);
+        serchParams.dirToSearch = process.cwd();
     }
+
+    serchParams.pattern = (await inquirer.prompt([{
+        name: 'pattern',
+        type: 'input',
+        message: 'Pattern: ',
+        describe: 'Pattern'
+    }])).pattern;
+
+    return serchParams;
 };
 
-const timerId = setInterval(() => {
-    emitter.emit('timerTick', dateInFuture);
-}, 1000)
 
-const showTimerDone = (timerId) => {
-    clearInterval(timerId);
-    console.log('End');
+const dir = (dirPath) => fs.lstatSync(dirPath).isDirectory();
+
+
+const run = async() => {
+    const { dirToSearch, pattern } = await options();
+    const files = [];
+    const dirsToResearch = [];
+    dirsToResearch.push(dirToSearch);
+
+    while (dirsToResearch.length > 0) {
+        const currentDir = dirsToResearch.shift();
+        const dirContains = fs.readdirSync(currentDir);
+        const inDirFiles = dirContains.filter((fileName) => fileName.indexOf(pattern) !== -1);
+        const inDirDirs = dirContains.map((dirName) => path.join(currentDir, dirName)).filter(dir);
+        files.push(...inDirFiles);
+        dirsToResearch.push(...inDirDirs);
+    }
+
+    console.log(files);
 };
 
-emitter.on('timerTick', showRemainingTime);
-emitter.on('timerEnd', () => {
-    showTimerDone(timerId);
-});
+run();
