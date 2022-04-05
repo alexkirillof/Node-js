@@ -1,61 +1,37 @@
-const fs = require('fs');
 const path = require('path');
-const inquirer = require('inquirer');
+const fs = require('fs');
+const http = require('http')
+const HTML_TEMPLATE = './index_template.html';
+const HTML_TO_DISPLAY = path.join(path.resolve(), 'index.html');
 
+const isDir = (dirPath) => fs.lstatSync(dirPath).isDirectory();
 
+http.createServer((req, res) => {
+    const reqPath = path.join(path.resolve(), req.url);
 
-
-const options = async() => {
-    const serchParams = { dirToSearch: '', pattern: '' };
-
-    const { thisDir } = await inquirer.prompt([{
-        name: 'thisDir',
-        type: 'confirm',
-        message: 'search here:',
-        describe: 'search here'
-    }]);
-
-    if (!thisDir) {
-        serchParams.dirToSearch = (await inquirer.prompt([{
-            name: 'dirToSearch',
-            type: 'input',
-            message: 'indicate the path: ',
-            describe: 'indicate the path'
-        }])).dirToSearch;
+    if (isDir(reqPath)) {
+        const dirContent = fs.readdirSync(reqPath);
+        makeResultHTML(displayDirContent(req.url, dirContent));
     } else {
-        serchParams.dirToSearch = process.cwd();
+        makeResultHTML(fs.readFileSync(reqPath, 'utf-8'));
     }
 
-    serchParams.pattern = (await inquirer.prompt([{
-        name: 'pattern',
-        type: 'input',
-        message: 'Pattern: ',
-        describe: 'Pattern'
-    }])).pattern;
 
-    return serchParams;
+    const readStream = fs.createReadStream(HTML_TO_DISPLAY);
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    readStream.pipe(res);
+}).listen(3001, 'localhost');
+
+const displayDirContent = (currentPath, list) => {
+    let htmlList = '';
+    htmlList += '<ul>';
+    htmlList += list.reduce((list, item) => list += `<li><a href="${currentPath == '/' ? currentPath + item : currentPath + '/' + item}">${item}</a></li>`, '');
+    htmlList += '</ul>';
+    return htmlList;
 };
 
-
-const dir = (dirPath) => fs.lstatSync(dirPath).isDirectory();
-
-
-const run = async() => {
-    const { dirToSearch, pattern } = await options();
-    const files = [];
-    const dirsToResearch = [];
-    dirsToResearch.push(dirToSearch);
-
-    while (dirsToResearch.length > 0) {
-        const currentDir = dirsToResearch.shift();
-        const dirContains = fs.readdirSync(currentDir);
-        const inDirFiles = dirContains.filter((fileName) => fileName.indexOf(pattern) !== -1);
-        const inDirDirs = dirContains.map((dirName) => path.join(currentDir, dirName)).filter(dir);
-        files.push(...inDirFiles);
-        dirsToResearch.push(...inDirDirs);
-    }
-
-    console.log(files);
+const makeResultHTML = (toPresent) => {
+    let template = fs.readFileSync(HTML_TEMPLATE, 'utf-8');
+    template = template.replace('{{data}}', toPresent);
+    fs.writeFileSync('./index.html', template);
 };
-
-run();
