@@ -1,37 +1,17 @@
-const path = require('path');
-const fs = require('fs');
-const http = require('http')
-const HTML_TEMPLATE = './index_template.html';
-const HTML_TO_DISPLAY = path.join(path.resolve(), 'index.html');
+const worker_threads = require('worker_threads');
+const TEST_FILE = './access.log';
 
-const isDir = (dirPath) => fs.lstatSync(dirPath).isDirectory();
+let IPs = process.argv.slice(2);
 
-http.createServer((req, res) => {
-    const reqPath = path.join(path.resolve(), req.url);
+if (IPs.length == 0) {
+    IPs = ['89.123.1.41', '34.48.240.111'];
+}
 
-    if (isDir(reqPath)) {
-        const dirContent = fs.readdirSync(reqPath);
-        makeResultHTML(displayDirContent(req.url, dirContent));
-    } else {
-        makeResultHTML(fs.readFileSync(reqPath, 'utf-8'));
-    }
-
-
-    const readStream = fs.createReadStream(HTML_TO_DISPLAY);
-    res.writeHead(200, { 'Content-Type': 'text/html' });
-    readStream.pipe(res);
-}).listen(3001, 'localhost');
-
-const displayDirContent = (currentPath, list) => {
-    let htmlList = '';
-    htmlList += '<ul>';
-    htmlList += list.reduce((list, item) => list += `<li><a href="${currentPath == '/' ? currentPath + item : currentPath + '/' + item}">${item}</a></li>`, '');
-    htmlList += '</ul>';
-    return htmlList;
-};
-
-const makeResultHTML = (toPresent) => {
-    let template = fs.readFileSync(HTML_TEMPLATE, 'utf-8');
-    template = template.replace('{{data}}', toPresent);
-    fs.writeFileSync('./index.html', template);
-};
+(async() => {
+    const worker = new worker_threads.Worker('./search.js', {
+        workerData: {
+            path: TEST_FILE,
+            IPs: IPs
+        }
+    });
+})()
